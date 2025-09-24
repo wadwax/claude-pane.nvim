@@ -187,13 +187,11 @@ local function create_window()
 
   -- Calculate and set dynamic window dimensions
   local editor_width = vim.o.columns
-  local editor_height = vim.o.lines - vim.o.cmdheight - 2 -- Account for statusline and cmdline
 
   local window_width = calculate_dimension(config.width, editor_width)
-  local window_height = calculate_dimension(config.height, editor_height)
 
   vim.api.nvim_win_set_width(state.win, window_width)
-  vim.api.nvim_win_set_height(state.win, window_height)
+  -- Don't set height for vertical splits - let it inherit from adjacent panes
 
   -- Set window options
   vim.api.nvim_win_set_option(state.win, 'wrap', true)
@@ -286,20 +284,18 @@ function M.resize(width, height)
   end
   if height then
     config.height = height
+    vim.notify("Height setting ignored for vertical splits - height inherits from adjacent panes", vim.log.levels.WARN)
   end
 
   -- Calculate new dimensions
   local editor_width = vim.o.columns
-  local editor_height = vim.o.lines - vim.o.cmdheight - 2
 
   local window_width = calculate_dimension(config.width, editor_width)
-  local window_height = calculate_dimension(config.height, editor_height)
 
-  -- Apply new dimensions
+  -- Apply new dimensions (only width for vertical splits)
   vim.api.nvim_win_set_width(state.win, window_width)
-  vim.api.nvim_win_set_height(state.win, window_height)
 
-  vim.notify(string.format("Claude pane resized to %dx%d", window_width, window_height), vim.log.levels.INFO)
+  vim.notify(string.format("Claude pane resized to width %d", window_width), vim.log.levels.INFO)
 end
 
 -- Setup function
