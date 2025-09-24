@@ -333,7 +333,25 @@ end
 -- Toggle the claude pane
 function M.toggle()
   if state.is_open then
-    -- Close the pane
+    -- Check if there's a visual selection first
+    local selection = get_visual_selection()
+    local formatted_text = nil
+    if selection then
+      formatted_text = format_code_block(selection)
+    end
+
+    -- If there's a selection and claude is running, paste it instead of closing
+    if formatted_text and state.claude_job_id then
+      -- Focus the claude pane and paste the selection
+      if state.win and vim.api.nvim_win_is_valid(state.win) then
+        vim.api.nvim_set_current_win(state.win)
+      end
+      paste_to_claude(formatted_text)
+      vim.cmd('startinsert')
+      return
+    end
+
+    -- Close the pane (only if no selection to paste)
     close_window()
     cleanup_auto_refresh()
     state.is_open = false
@@ -357,12 +375,18 @@ function M.toggle()
       start_claude()
     end
 
-    -- If we have formatted text and claude is running, paste it
-    if formatted_text and state.claude_job_id then
-      -- Use vim.defer_fn to ensure the terminal is ready
-      vim.defer_fn(function()
-        paste_to_claude(formatted_text)
-      end, 100)
+    -- If we have formatted text, paste it once claude is ready
+    if formatted_text then
+      -- Use vim.defer_fn to ensure the terminal is ready and claude is started
+      local function try_paste()
+        if state.claude_job_id then
+          paste_to_claude(formatted_text)
+        else
+          -- If claude isn't ready yet, try again in a bit
+          vim.defer_fn(try_paste, 100)
+        end
+      end
+      vim.defer_fn(try_paste, 100)
     end
 
     -- Stay in the claude pane and enter insert mode
