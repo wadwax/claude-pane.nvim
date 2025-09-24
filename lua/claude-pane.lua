@@ -209,6 +209,17 @@ local function create_window()
   vim.api.nvim_buf_set_keymap(buf, 't', '<C-j>', '<C-\\><C-n><C-w>j', { silent = true, noremap = true })
   vim.api.nvim_buf_set_keymap(buf, 't', '<C-k>', '<C-\\><C-n><C-w>k', { silent = true, noremap = true })
 
+  -- Auto-enter insert mode when entering the Claude pane window
+  vim.api.nvim_create_autocmd({"BufEnter", "WinEnter"}, {
+    buffer = buf,
+    callback = function()
+      if vim.api.nvim_get_current_win() == state.win and state.is_open then
+        vim.cmd('startinsert')
+      end
+    end,
+    group = vim.api.nvim_create_augroup("ClaudePaneInsertMode", { clear = false })
+  })
+
   return state.win
 end
 
@@ -310,6 +321,8 @@ function M.cleanup()
   end
   close_window()
   cleanup_auto_refresh()
+  -- Clean up insert mode autocmds
+  pcall(vim.api.nvim_del_augroup_by_name, "ClaudePaneInsertMode")
   if state.buf and vim.api.nvim_buf_is_valid(state.buf) then
     vim.api.nvim_buf_delete(state.buf, { force = true })
   end
