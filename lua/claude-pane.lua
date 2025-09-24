@@ -262,10 +262,44 @@ function M.focus()
   end
 end
 
+-- Resize the claude pane
+function M.resize(width, height)
+  if not state.is_open or not state.win or not vim.api.nvim_win_is_valid(state.win) then
+    vim.notify("Claude pane is not open", vim.log.levels.WARN)
+    return
+  end
+
+  -- Update config if new values provided
+  if width then
+    config.width = width
+  end
+  if height then
+    config.height = height
+  end
+
+  -- Calculate new dimensions
+  local editor_width = vim.o.columns
+  local editor_height = vim.o.lines - vim.o.cmdheight - 2
+
+  local window_width = calculate_dimension(config.width, editor_width)
+  local window_height = calculate_dimension(config.height, editor_height)
+
+  -- Apply new dimensions
+  vim.api.nvim_win_set_width(state.win, window_width)
+  vim.api.nvim_win_set_height(state.win, window_height)
+
+  vim.notify(string.format("Claude pane resized to %dx%d", window_width, window_height), vim.log.levels.INFO)
+end
+
 -- Setup function
 function M.setup(opts)
   opts = opts or {}
   config = vim.tbl_extend("force", config, opts)
+end
+
+-- Helper function to get current config (for commands)
+function M._get_config()
+  return config
 end
 
 -- Cleanup function
