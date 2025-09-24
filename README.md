@@ -23,7 +23,7 @@ A Neovim plugin that provides a toggleable sidebar for interacting with Claude A
 
 ```lua
 {
-  "your-username/claude-pane.nvim",
+  "wadwax/claude-pane.nvim",
   config = function()
     require("claude-pane").setup({
       width = 60,        -- Width of the sidebar
@@ -37,7 +37,7 @@ A Neovim plugin that provides a toggleable sidebar for interacting with Claude A
 
 ```lua
 use {
-  "your-username/claude-pane.nvim",
+  "wadwax/claude-pane.nvim",
   config = function()
     require("claude-pane").setup()
   end
