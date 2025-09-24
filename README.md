@@ -72,6 +72,9 @@ Add these keymaps to your Neovim configuration:
 -- Toggle Claude pane
 vim.keymap.set('n', '<C-t>', '<cmd>lua require("claude-pane").toggle()<CR>', { silent = true })
 
+-- Toggle Claude pane from visual mode (auto-pastes selection)
+vim.keymap.set('v', '<C-t>', '<cmd>lua require("claude-pane").toggle()<CR>', { silent = true })
+
 -- Focus Claude pane (opens if closed)
 vim.keymap.set('n', '<leader>cc', '<cmd>lua require("claude-pane").focus()<CR>', { silent = true })
 ```
@@ -90,6 +93,7 @@ vim.keymap.set('n', '<leader>cc', '<cmd>lua require("claude-pane").focus()<CR>',
 | Mode | Key | Action |
 |------|-----|--------|
 | Normal | `<C-t>` | Toggle Claude pane |
+| Visual | `<C-t>` | Toggle Claude pane with selected text |
 | Normal | `<leader>cc` | Focus Claude pane |
 | Terminal | `<C-t>` | Close Claude pane |
 | Terminal | `<Esc><Esc>` | Close Claude pane |
