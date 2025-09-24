@@ -42,6 +42,85 @@ local refresh_state = {
   original_updatetime = nil,
 }
 
+-- Visual selection handling functions
+local function get_visual_selection()
+  -- Check if we're in visual mode or just exited it
+  local mode = vim.fn.mode()
+  if mode == 'v' or mode == 'V' or mode == '\22' then -- \22 is visual block mode
+    -- We're currently in visual mode - get selection
+    local start_pos = vim.fn.getpos("'<")
+    local end_pos = vim.fn.getpos("'>")
+    local start_line = start_pos[2]
+    local end_line = end_pos[2]
+
+    -- Get the selected lines
+    local lines = vim.fn.getline(start_line, end_line)
+    local selected_text = table.concat(lines, '\n')
+
+    -- Get current file path
+    local file_path = vim.fn.expand('%:p')
+    local relative_path = vim.fn.expand('%:.')
+
+    return {
+      text = selected_text,
+      file_path = file_path,
+      relative_path = relative_path,
+      start_line = start_line,
+      end_line = end_line
+    }
+  else
+    -- Check if there was a recent visual selection
+    local start_pos = vim.fn.getpos("'<")
+    local end_pos = vim.fn.getpos("'>")
+
+    -- Only use the previous selection if it's in the current buffer
+    if start_pos[1] ~= 0 and end_pos[1] ~= 0 then
+      local start_line = start_pos[2]
+      local end_line = end_pos[2]
+
+      -- Get the previously selected lines
+      local lines = vim.fn.getline(start_line, end_line)
+      local selected_text = table.concat(lines, '\n')
+
+      -- Get current file path
+      local file_path = vim.fn.expand('%:p')
+      local relative_path = vim.fn.expand('%:.')
+
+      return {
+        text = selected_text,
+        file_path = file_path,
+        relative_path = relative_path,
+        start_line = start_line,
+        end_line = end_line
+      }
+    end
+  end
+
+  return nil
+end
+
+local function format_code_block(selection)
+  if not selection or not selection.text or selection.text == '' then
+    return nil
+  end
+
+  local line_range = selection.start_line == selection.end_line
+    and tostring(selection.start_line)
+    or selection.start_line .. ':' .. selection.end_line
+
+  return string.format('```%s:%s\n%s\n```\n\n', selection.relative_path, line_range, selection.text)
+end
+
+local function paste_to_claude(text)
+  if not text or not state.claude_job_id then
+    return false
+  end
+
+  -- Send the text to the claude terminal
+  vim.fn.chansend(state.claude_job_id, text)
+  return true
+end
+
 -- Check if claude command is available
 local function claude_available()
   local handle = io.popen("which claude")
@@ -259,6 +338,13 @@ function M.toggle()
     cleanup_auto_refresh()
     state.is_open = false
   else
+    -- Get visual selection before opening the pane
+    local selection = get_visual_selection()
+    local formatted_text = nil
+    if selection then
+      formatted_text = format_code_block(selection)
+    end
+
     -- Open the pane
     create_window()
 
@@ -271,6 +357,14 @@ function M.toggle()
       start_claude()
     end
 
+    -- If we have formatted text and claude is running, paste it
+    if formatted_text and state.claude_job_id then
+      -- Use vim.defer_fn to ensure the terminal is ready
+      vim.defer_fn(function()
+        paste_to_claude(formatted_text)
+      end, 100)
+    end
+
     -- Stay in the claude pane and enter insert mode
     vim.cmd('startinsert')
 
@@ -281,7 +375,20 @@ end
 -- Focus the claude pane
 function M.focus()
   if state.is_open and state.win and vim.api.nvim_win_is_valid(state.win) then
+    -- Get visual selection before focusing
+    local selection = get_visual_selection()
+    local formatted_text = nil
+    if selection then
+      formatted_text = format_code_block(selection)
+    end
+
     vim.api.nvim_set_current_win(state.win)
+
+    -- If we have formatted text and claude is running, paste it
+    if formatted_text and state.claude_job_id then
+      paste_to_claude(formatted_text)
+    end
+
     -- Enter terminal insert mode
     vim.cmd('startinsert')
   else
