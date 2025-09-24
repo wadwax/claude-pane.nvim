@@ -335,12 +335,12 @@ function M.toggle()
 
     -- If there's a selection and claude is running, paste it instead of closing
     if formatted_text and state.claude_job_id then
+      -- Clear visual marks and highlighting in the original window first
+      vim.cmd('normal! <Esc>')
       -- Focus the claude pane and paste the selection
       if state.win and vim.api.nvim_win_is_valid(state.win) then
         vim.api.nvim_set_current_win(state.win)
       end
-      -- Clear visual marks and highlighting
-      vim.cmd('normal! <Esc>')
       vim.schedule(function()
         paste_to_claude(formatted_text)
         vim.cmd('startinsert')
