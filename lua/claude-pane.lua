@@ -17,6 +17,44 @@ local config = {
   refresh_timer_interval = 1000, -- milliseconds
 }
 
+-- Set up highlight groups for darker background
+local function setup_highlights()
+  -- Get current Normal background
+  local normal_bg = vim.fn.synIDattr(vim.fn.hlID("Normal"), "bg")
+
+  -- If no background is set, use a default dark color
+  if normal_bg == "" or normal_bg == nil then
+    normal_bg = "#1e1e1e"  -- Default dark background
+  end
+
+  -- Create a darker version of the background
+  local function darken_color(hex_color, factor)
+    factor = factor or 0.8  -- Default darkening factor
+
+    -- Remove # if present
+    hex_color = hex_color:gsub("^#", "")
+
+    -- Convert hex to RGB
+    local r = tonumber(hex_color:sub(1, 2), 16) or 30
+    local g = tonumber(hex_color:sub(3, 4), 16) or 30
+    local b = tonumber(hex_color:sub(5, 6), 16) or 30
+
+    -- Darken each component
+    r = math.floor(r * factor)
+    g = math.floor(g * factor)
+    b = math.floor(b * factor)
+
+    -- Convert back to hex
+    return string.format("#%02x%02x%02x", r, g, b)
+  end
+
+  local darker_bg = darken_color(normal_bg, 0.7)
+
+  -- Set up Claude pane specific highlight groups
+  vim.api.nvim_set_hl(0, "ClaudePaneNormal", { bg = darker_bg })
+  vim.api.nvim_set_hl(0, "ClaudePaneNormalNC", { bg = darker_bg })
+end
+
 -- File refresh state
 local refresh_state = {
   timer = nil,
@@ -199,6 +237,10 @@ local function create_window()
   vim.api.nvim_win_set_option(state.win, 'number', false)
   vim.api.nvim_win_set_option(state.win, 'relativenumber', false)
 
+  -- Apply darker background highlighting
+  setup_highlights()
+  vim.api.nvim_win_set_option(state.win, 'winhighlight', 'Normal:ClaudePaneNormal,NormalNC:ClaudePaneNormalNC')
+
   -- Set up terminal mode keymaps for this buffer
   vim.api.nvim_buf_set_keymap(buf, 't', '<C-t>', '<C-\\><C-n>:lua require("claude-pane").toggle()<CR>', { silent = true, noremap = true })
   vim.api.nvim_buf_set_keymap(buf, 't', '<Esc><Esc>', '<C-\\><C-n>:lua require("claude-pane").toggle()<CR>', { silent = true, noremap = true })
@@ -330,6 +372,17 @@ end
 vim.api.nvim_create_autocmd("VimLeavePre", {
   callback = function()
     M.cleanup()
+  end,
+})
+
+-- Auto command to refresh highlights when colorscheme changes
+vim.api.nvim_create_autocmd("ColorScheme", {
+  callback = function()
+    setup_highlights()
+    -- Refresh window highlight if Claude pane is open
+    if state.is_open and state.win and vim.api.nvim_win_is_valid(state.win) then
+      vim.api.nvim_win_set_option(state.win, 'winhighlight', 'Normal:ClaudePaneNormal,NormalNC:ClaudePaneNormalNC')
+    end
   end,
 })
 
