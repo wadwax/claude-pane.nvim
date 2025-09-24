@@ -50,15 +50,27 @@ local function get_visual_selection()
   -- Check if we're in visual mode or just exited it
   local mode = vim.fn.mode()
   if mode == 'v' or mode == 'V' or mode == '\22' then -- \22 is visual block mode
-    -- We're currently in visual mode - get selection using built-in function
-    vim.cmd('normal! "vy')  -- Yank visual selection to v register
-    local selected_text = vim.fn.getreg('v')
-
     -- Get visual marks for line numbers
     local start_pos = vim.fn.getpos("'<")
     local end_pos = vim.fn.getpos("'>")
     local start_line = start_pos[2]
     local end_line = end_pos[2]
+    local start_col = start_pos[3]
+    local end_col = end_pos[3]
+
+    -- Get the selected text directly from buffer lines
+    local lines = vim.api.nvim_buf_get_lines(0, start_line - 1, end_line, false)
+    local selected_text = ""
+
+    if #lines == 1 then
+      -- Single line selection
+      selected_text = string.sub(lines[1], start_col, end_col)
+    elseif #lines > 1 then
+      -- Multi-line selection
+      lines[1] = string.sub(lines[1], start_col)  -- First line from start_col
+      lines[#lines] = string.sub(lines[#lines], 1, end_col)  -- Last line to end_col
+      selected_text = table.concat(lines, "\n")
+    end
 
     -- Get current file path
     local file_path = vim.fn.expand('%:p')
