@@ -9,7 +9,9 @@ A Neovim plugin that provides a toggleable sidebar for interacting with Claude A
 - 🔄 **Persistent sessions** - Chat history preserved between toggles
 - ⌨️ **Smart keybindings** - Intuitive navigation and control
 - 🎯 **Auto-focus** - Opens ready to chat with insert mode enabled
-- 🔧 **Configurable** - Customize width and position
+- 🔧 **Configurable** - Customize width, height, and position
+- 📁 **Auto-refresh** - Automatically reloads files modified by Claude
+- 📏 **Dynamic sizing** - Support for percentage-based and absolute dimensions
 
 ## Requirements
 
@@ -26,8 +28,11 @@ A Neovim plugin that provides a toggleable sidebar for interacting with Claude A
   "wadwax/claude-pane.nvim",
   config = function()
     require("claude-pane").setup({
-      width = 60,        -- Width of the sidebar
-      position = "right" -- Position: "left" or "right"
+      width = 60,                    -- Width: absolute number or percentage like "30%"
+      height = "80%",                -- Height: absolute number or percentage like "80%"
+      position = "right",            -- Position: "left" or "right"
+      auto_refresh = true,           -- Enable automatic file refresh
+      refresh_timer_interval = 1000, -- Refresh interval in milliseconds
     })
   end,
 }
@@ -99,9 +104,25 @@ Default configuration:
 
 ```lua
 require("claude-pane").setup({
-  width = 60,        -- Sidebar width in columns
-  position = "right" -- Sidebar position: "left" or "right"
+  width = 60,                    -- Sidebar width: number or percentage (e.g., "30%")
+  height = "80%",                -- Sidebar height: number or percentage (e.g., "80%")
+  position = "right",            -- Sidebar position: "left" or "right"
+  auto_refresh = true,           -- Enable automatic file refresh when Claude modifies files
+  refresh_timer_interval = 1000, -- File refresh check interval in milliseconds
 })
+```
+
+### Dynamic Sizing Examples
+
+```lua
+-- Fixed dimensions
+{ width = 80, height = 40 }
+
+-- Percentage-based (responsive)
+{ width = "25%", height = "90%" }
+
+-- Mixed
+{ width = 60, height = "75%" }
 ```
 
 ## API

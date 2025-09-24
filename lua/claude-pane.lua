@@ -11,7 +11,16 @@ local state = {
 -- Configuration
 local config = {
   width = 60,
+  height = "80%", -- percentage of editor height or absolute number
   position = "right",
+  auto_refresh = true,
+  refresh_timer_interval = 1000, -- milliseconds
+}
+
+-- File refresh state
+local refresh_state = {
+  timer = nil,
+  original_updatetime = nil,
 }
 
 -- Check if claude command is available
@@ -25,6 +34,78 @@ end
 -- Check if API key is available
 local function api_key_available()
   return os.getenv("ANTHROPIC_API_KEY") ~= nil and os.getenv("ANTHROPIC_API_KEY") ~= ""
+end
+
+-- Calculate window dimensions
+local function calculate_dimension(value, total)
+  if type(value) == "string" and value:match("%%$") then
+    -- Handle percentage values like "80%"
+    local percent = tonumber(value:match("(%d+)%%"))
+    return math.floor(total * percent / 100)
+  else
+    -- Handle absolute values
+    return tonumber(value) or total
+  end
+end
+
+-- Auto-refresh functionality
+local function setup_auto_refresh()
+  if not config.auto_refresh then
+    return
+  end
+
+  -- Enable autoread
+  vim.o.autoread = true
+
+  -- Store original updatetime
+  if not refresh_state.original_updatetime then
+    refresh_state.original_updatetime = vim.o.updatetime
+  end
+
+  -- Set faster updatetime when Claude pane is open
+  vim.o.updatetime = math.min(vim.o.updatetime, 1000)
+
+  -- Set up autocommands for file refresh
+  vim.api.nvim_create_autocmd({"CursorHold", "CursorHoldI", "FocusGained", "BufEnter", "WinEnter"}, {
+    group = vim.api.nvim_create_augroup("ClaudePaneAutoRefresh", { clear = true }),
+    callback = function()
+      if state.is_open then
+        vim.cmd('checktime')
+      end
+    end,
+  })
+
+  -- Optional: Set up periodic timer for more aggressive checking
+  if config.refresh_timer_interval > 0 then
+    if refresh_state.timer then
+      refresh_state.timer:stop()
+    end
+
+    refresh_state.timer = vim.loop.new_timer()
+    refresh_state.timer:start(config.refresh_timer_interval, config.refresh_timer_interval, vim.schedule_wrap(function()
+      if state.is_open then
+        vim.cmd('silent! checktime')
+      end
+    end))
+  end
+end
+
+-- Clean up auto-refresh
+local function cleanup_auto_refresh()
+  if refresh_state.timer then
+    refresh_state.timer:stop()
+    refresh_state.timer:close()
+    refresh_state.timer = nil
+  end
+
+  -- Restore original updatetime
+  if refresh_state.original_updatetime then
+    vim.o.updatetime = refresh_state.original_updatetime
+    refresh_state.original_updatetime = nil
+  end
+
+  -- Clear autocommands
+  pcall(vim.api.nvim_del_augroup_by_name, "ClaudePaneAutoRefresh")
 end
 
 -- Create or get the claude buffer
@@ -104,8 +185,15 @@ local function create_window()
   -- Set the buffer in the new window
   vim.api.nvim_win_set_buf(state.win, buf)
 
-  -- Set window width
-  vim.api.nvim_win_set_width(state.win, config.width)
+  -- Calculate and set dynamic window dimensions
+  local editor_width = vim.o.columns
+  local editor_height = vim.o.lines - vim.o.cmdheight - 2 -- Account for statusline and cmdline
+
+  local window_width = calculate_dimension(config.width, editor_width)
+  local window_height = calculate_dimension(config.height, editor_height)
+
+  vim.api.nvim_win_set_width(state.win, window_width)
+  vim.api.nvim_win_set_height(state.win, window_height)
 
   -- Set window options
   vim.api.nvim_win_set_option(state.win, 'wrap', true)
@@ -137,10 +225,14 @@ function M.toggle()
   if state.is_open then
     -- Close the pane
     close_window()
+    cleanup_auto_refresh()
     state.is_open = false
   else
     -- Open the pane
     create_window()
+
+    -- Set up auto-refresh when pane opens
+    setup_auto_refresh()
 
     -- Start claude if not already running and buffer exists
     if state.buf and vim.api.nvim_buf_is_valid(state.buf) and not state.claude_job_id then
@@ -183,6 +275,7 @@ function M.cleanup()
     state.claude_job_id = nil
   end
   close_window()
+  cleanup_auto_refresh()
   if state.buf and vim.api.nvim_buf_is_valid(state.buf) then
     vim.api.nvim_buf_delete(state.buf, { force = true })
   end
