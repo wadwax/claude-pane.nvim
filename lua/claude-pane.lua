@@ -50,16 +50,16 @@ local function get_visual_selection()
   -- Check if we're in visual mode or just exited it
   local mode = vim.fn.mode()
   if mode == 'v' or mode == 'V' or mode == '\22' then -- \22 is visual block mode
-    -- We're currently in visual mode - get selection
+    -- We're currently in visual mode - get selection using built-in function
+    vim.cmd('normal! "vy')  -- Yank visual selection to v register
+    local selected_text = vim.fn.getreg('v')
+
+    -- Get visual marks for line numbers
     local start_pos = vim.fn.getpos("'<")
     local end_pos = vim.fn.getpos("'>")
     local start_line = start_pos[2]
     local end_line = end_pos[2]
 
-    -- Get the selected lines
-    local lines = vim.fn.getline(start_line, end_line)
-    local selected_text = table.concat(lines, '\n')
-
     -- Get current file path
     local file_path = vim.fn.expand('%:p')
     local relative_path = vim.fn.expand('%:.')
@@ -72,44 +72,15 @@ local function get_visual_selection()
       end_line = end_line
     }
 
-    -- Store this selection for later use and clear visual marks
+    -- Store this selection for later use
     current_selection = selection
     return selection
   end
 
-  -- Check if we just exited visual mode by looking at visual marks
-  local start_pos = vim.fn.getpos("'<")
-  local end_pos = vim.fn.getpos("'>")
-  if start_pos[2] > 0 and end_pos[2] > 0 then
-    -- Get current file path
-    local file_path = vim.fn.expand('%:p')
-    local relative_path = vim.fn.expand('%:.')
-
-    -- Only use stored selection if it matches current file and current visual marks
-    if current_selection and
-       current_selection.file_path == file_path and
-       current_selection.start_line == start_pos[2] and
-       current_selection.end_line == end_pos[2] then
-      local selection = current_selection
-      current_selection = nil  -- Clear after use to prevent stale selections
-      return selection
-    end
-
-    -- If marks don't match stored selection, create new selection from marks
-    local start_line = start_pos[2]
-    local end_line = end_pos[2]
-    local lines = vim.fn.getline(start_line, end_line)
-    local selected_text = table.concat(lines, '\n')
-
-    local selection = {
-      text = selected_text,
-      file_path = file_path,
-      relative_path = relative_path,
-      start_line = start_line,
-      end_line = end_line
-    }
-
-    current_selection = nil  -- Clear stored selection since we're using fresh marks
+  -- If not in visual mode, check for stored selection and clear it after use
+  if current_selection then
+    local selection = current_selection
+    current_selection = nil  -- Clear immediately to prevent reuse
     return selection
   end
 
