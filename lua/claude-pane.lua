@@ -335,7 +335,11 @@ function M.toggle()
 
     -- If there's a selection and claude is running, paste it instead of closing
     if formatted_text and state.claude_job_id then
-      -- Clear visual marks and highlighting in the original window first
+      -- Clear visual mode completely
+      local mode = vim.fn.mode()
+      if mode == 'v' or mode == 'V' or mode == '\22' then
+        vim.cmd('normal! v')  -- Exit visual mode properly
+      end
       vim.cmd('normal! <Esc>')
       -- Focus the claude pane and paste the selection
       if state.win and vim.api.nvim_win_is_valid(state.win) then
@@ -360,7 +364,11 @@ function M.toggle()
       formatted_text = format_code_block(selection)
     end
 
-    -- Clear visual marks and highlighting immediately
+    -- Clear visual mode completely
+    local mode = vim.fn.mode()
+    if mode == 'v' or mode == 'V' or mode == '\22' then
+      vim.cmd('normal! v')  -- Exit visual mode properly
+    end
     vim.cmd('normal! <Esc>')
 
     -- Open the pane
@@ -412,7 +420,11 @@ function M.focus()
       formatted_text = format_code_block(selection)
     end
 
-    -- Clear visual marks and highlighting
+    -- Clear visual mode completely
+    local mode = vim.fn.mode()
+    if mode == 'v' or mode == 'V' or mode == '\22' then
+      vim.cmd('normal! v')  -- Exit visual mode properly
+    end
     vim.cmd('normal! <Esc>')
 
     vim.api.nvim_set_current_win(state.win)
