@@ -42,6 +42,9 @@ local refresh_state = {
   original_updatetime = nil,
 }
 
+-- Store current selection for pasting (cleared after use)
+local current_selection = nil
+
 -- Visual selection handling functions
 local function get_visual_selection()
   -- Check if we're in visual mode or just exited it
@@ -61,42 +64,32 @@ local function get_visual_selection()
     local file_path = vim.fn.expand('%:p')
     local relative_path = vim.fn.expand('%:.')
 
-    return {
+    local selection = {
       text = selected_text,
       file_path = file_path,
       relative_path = relative_path,
       start_line = start_line,
       end_line = end_line
     }
-  else
-    -- Check if there was a recent visual selection
-    local start_pos = vim.fn.getpos("'<")
-    local end_pos = vim.fn.getpos("'>")
 
-    -- Only use the previous selection if it's in the current buffer
-    if start_pos[1] ~= 0 and end_pos[1] ~= 0 then
-      local start_line = start_pos[2]
-      local end_line = end_pos[2]
+    -- Store this selection for later use and clear visual marks
+    current_selection = selection
+    return selection
+  end
 
-      -- Get the previously selected lines
-      local lines = vim.fn.getline(start_line, end_line)
-      local selected_text = table.concat(lines, '\n')
-
-      -- Get current file path
-      local file_path = vim.fn.expand('%:p')
-      local relative_path = vim.fn.expand('%:.')
-
-      return {
-        text = selected_text,
-        file_path = file_path,
-        relative_path = relative_path,
-        start_line = start_line,
-        end_line = end_line
-      }
-    end
+  -- Return stored selection if available (will be cleared after use)
+  if current_selection then
+    local selection = current_selection
+    current_selection = nil  -- Clear after use to prevent stale selections
+    return selection
   end
 
   return nil
+end
+
+-- Clear stored selection
+local function clear_current_selection()
+  current_selection = nil
 end
 
 local function format_code_block(selection)
@@ -346,8 +339,12 @@ function M.toggle()
       if state.win and vim.api.nvim_win_is_valid(state.win) then
         vim.api.nvim_set_current_win(state.win)
       end
-      paste_to_claude(formatted_text)
-      vim.cmd('startinsert')
+      -- Clear visual marks and highlighting
+      vim.cmd('normal! <Esc>')
+      vim.schedule(function()
+        paste_to_claude(formatted_text)
+        vim.cmd('startinsert')
+      end)
       return
     end
 
@@ -363,6 +360,9 @@ function M.toggle()
       formatted_text = format_code_block(selection)
     end
 
+    -- Clear visual marks and highlighting immediately
+    vim.cmd('normal! <Esc>')
+
     -- Open the pane
     create_window()
 
@@ -377,20 +377,26 @@ function M.toggle()
 
     -- If we have formatted text, paste it once claude is ready
     if formatted_text then
-      -- Use vim.defer_fn to ensure the terminal is ready and claude is started
+      -- Use vim.schedule to ensure the terminal is ready and claude is started
       local function try_paste()
         if state.claude_job_id then
           paste_to_claude(formatted_text)
+          -- Enter insert mode after pasting
+          vim.schedule(function()
+            vim.cmd('startinsert')
+          end)
         else
           -- If claude isn't ready yet, try again in a bit
           vim.defer_fn(try_paste, 100)
         end
       end
-      vim.defer_fn(try_paste, 100)
+      vim.defer_fn(try_paste, 200)  -- Slightly longer delay to ensure terminal is ready
+    else
+      -- No text to paste, just enter insert mode immediately
+      vim.schedule(function()
+        vim.cmd('startinsert')
+      end)
     end
-
-    -- Stay in the claude pane and enter insert mode
-    vim.cmd('startinsert')
 
     state.is_open = true
   end
@@ -406,6 +412,9 @@ function M.focus()
       formatted_text = format_code_block(selection)
     end
 
+    -- Clear visual marks and highlighting
+    vim.cmd('normal! <Esc>')
+
     vim.api.nvim_set_current_win(state.win)
 
     -- If we have formatted text and claude is running, paste it
@@ -414,12 +423,16 @@ function M.focus()
     end
 
     -- Enter terminal insert mode
-    vim.cmd('startinsert')
+    vim.schedule(function()
+      vim.cmd('startinsert')
+    end)
   else
     M.toggle()
     if state.win and vim.api.nvim_win_is_valid(state.win) then
       vim.api.nvim_set_current_win(state.win)
-      vim.cmd('startinsert')
+      vim.schedule(function()
+        vim.cmd('startinsert')
+      end)
     end
   end
 end
@@ -470,6 +483,7 @@ function M.cleanup()
   end
   close_window()
   cleanup_auto_refresh()
+  clear_current_selection()  -- Clear any stored selections
   -- Clean up insert mode autocmds
   pcall(vim.api.nvim_del_augroup_by_name, "ClaudePaneInsertMode")
   if state.buf and vim.api.nvim_buf_is_valid(state.buf) then
