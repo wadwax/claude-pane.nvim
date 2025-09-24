@@ -294,7 +294,7 @@ local function create_window()
   vim.api.nvim_win_set_option(state.win, 'winhighlight', 'Normal:ClaudePaneNormal,NormalNC:ClaudePaneNormalNC')
 
   -- Set up terminal mode keymaps for this buffer
-  vim.api.nvim_buf_set_keymap(buf, 't', '<C-t>', '<C-\\><C-n>:lua require("claude-pane").toggle()<CR>', { silent = true, noremap = true })
+  vim.api.nvim_buf_set_keymap(buf, 't', '<C-t>', '<cmd>lua require("claude-pane").toggle()<CR>', { silent = true, noremap = true })
   vim.api.nvim_buf_set_keymap(buf, 't', '<Esc><Esc>', '<C-\\><C-n>:lua require("claude-pane").toggle()<CR>', { silent = true, noremap = true })
   vim.api.nvim_buf_set_keymap(buf, 't', '<C-h>', '<C-\\><C-n><C-w>h', { silent = true, noremap = true })
   vim.api.nvim_buf_set_keymap(buf, 't', '<C-l>', '<C-\\><C-n><C-w>l', { silent = true, noremap = true })
